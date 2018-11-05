@@ -51,7 +51,6 @@ cdef class graph:
 
     def load_regions(self, f, bool load_tau):
         cdef string cf = str.encode(f)
-        print(load_tau)
         return self.c_graph.load_regions(cf, load_tau)
 
     def load_agents(self, f, bool regions = False):

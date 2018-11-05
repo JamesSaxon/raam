@@ -25,7 +25,7 @@
 
 
 #define DEFAULT_REGION -1
-#define RHO 1000
+#define RHO 1e3
 
 using std::cout;
 using std::cerr;
@@ -489,6 +489,8 @@ void Graph::new_agent(long long id, int demand, long long region) {
 void Graph::new_resource(long long id, int supply, long long region) {
 
   assert(_addrR.find(id) == _addrR.end());
+  if (_addrReg.find(region) == _addrReg.end()) cout << region << endl;
+
   assert(_addrReg.find(region) != _addrReg.end());
 
   _addrR[id] = _resources.size();
