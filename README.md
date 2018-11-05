@@ -16,8 +16,8 @@ If c++ compiles are installed, you can build the `so` via
 python setup.py build_ext --inplace
 ```
 
-An example script and data for Illinois (2010 Census Tracts), `il_raam.py`.
+An example script and data for Chicago (2010 Census Tracts), `chicago.py`, suggests the basic functionality and file formats.
 
 This is part of a project on accesssibility by James Saxon and Dan Snow, at the Center for Spatial Data Science and the Harris School, of the University of Chicago.  Contact jsaxon@uc for more information, or if you're interested in using the tool.
 
-A Docker container for creating the origin-destination matrices used in RAAM (t<sub>rℓ</sub>) can be found at [https://github.com/JamesSaxon/driving-network-docker](driving-network-docker).
+A Docker container for creating the origin-destination matrices used in RAAM (t<sub>rℓ</sub>) can be found at [routing-container](https://github.com/JamesSaxon/routing-container).
