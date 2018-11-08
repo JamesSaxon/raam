@@ -25,7 +25,7 @@
 
 
 #define DEFAULT_REGION -1
-#define RHO 1e3
+#define RHO 1.315e3
 
 using std::cout;
 using std::cerr;
