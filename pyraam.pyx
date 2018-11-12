@@ -88,6 +88,15 @@ cdef class graph:
         self.c_graph.set_transform(scale, offset, power, log, log_base)
 
     def allocate_min_fixed(self, bool verbose = False):
+        """This function allocates all demand to the physician location with the minimum fixed costs.
+        It must be run before equilibrating demand.
+
+        :param verbose: create verbose output
+        :type verbose: bool
+        :returns: None
+
+        """
+
         self.c_graph.allocate_min_fixed(verbose)
         
     def equalize_use(self, int cycles = 1, int max_moves = 0, double decay = 0, int max_tunnel_moves = 0, bool verbose = False):
