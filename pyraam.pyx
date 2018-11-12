@@ -43,8 +43,9 @@ cdef extern from "raam.h" namespace "RAAM" :
 
                            
 cdef class graph:
+    """Docstring for class pyraam graph class."""
 
-    cdef Graph c_graph # hold a C++ instance which we're wrapping
+    cdef Graph c_graph #: This is an instance of the C++ object that we're wrapping.
 
     def __cinit__(self, double tau, double tol, int default_region = -1):
         self.c_graph = Graph(tau, tol, default_region)
