@@ -51,6 +51,16 @@ cdef class graph:
         self.c_graph = Graph(tau, tol, default_region)
 
     def load_regions(self, f, bool load_tau):
+        """
+        Blah blah blah.
+
+        Parameters
+        ---------
+        name
+            A string to assign to the `name` instance attribute.
+
+        """
+
         cdef string cf = str.encode(f)
         return self.c_graph.load_regions(cf, load_tau)
 
@@ -89,14 +99,6 @@ cdef class graph:
         self.c_graph.set_transform(scale, offset, power, log, log_base)
 
     def allocate_min_fixed(self, bool verbose = False):
-        """This function allocates all demand to the physician location with the minimum fixed costs.
-        It must be run before equilibrating demand.
-
-        :param verbose: create verbose output
-        :type verbose: bool
-        :returns: None
-
-        """
 
         self.c_graph.allocate_min_fixed(verbose)
         
