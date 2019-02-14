@@ -44,13 +44,24 @@ cdef extern from "raam.h" namespace "RAAM" :
 
                            
 cdef class graph:
+    """Docstring for class pyraam graph class."""
 
-    cdef Graph c_graph # hold a C++ instance which we're wrapping
+    cdef Graph c_graph #: This is an instance of the C++ object that we're wrapping.
 
     def __cinit__(self, double tau, double tol, int default_region = -1):
         self.c_graph = Graph(tau, tol, default_region)
 
     def load_regions(self, f, bool load_tau):
+        """
+        Blah blah blah.
+
+        Parameters
+        ---------
+        name
+            A string to assign to the `name` instance attribute.
+
+        """
+
         cdef string cf = str.encode(f)
         return self.c_graph.load_regions(cf, load_tau)
 
@@ -92,6 +103,7 @@ cdef class graph:
         self.c_graph.allocate_min_cost(max_moves, verbose)
 
     def allocate_min_fixed(self, bool verbose = False):
+
         self.c_graph.allocate_min_fixed(verbose)
         
     def equalize_use(self, int cycles = 1, int max_moves = 0, double decay = 0, int max_tunnel_moves = 0, bool verbose = False):
