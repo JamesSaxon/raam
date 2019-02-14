@@ -30,6 +30,7 @@ cdef extern from "raam.h" namespace "RAAM" :
 
         void set_transform(float, float, float, bool, float)
 
+        void allocate_min_cost(int, bool)
         void allocate_min_fixed(bool)
         void set_tau(double)
         void set_tol(double)
@@ -86,6 +87,9 @@ cdef class graph:
 
     def set_transform(self, float scale = 1, float offset = 0, float power = 1, bool log = False, float log_base = 2):
         self.c_graph.set_transform(scale, offset, power, log, log_base)
+
+    def allocate_min_cost(self, int max_moves = 10, bool verbose = False):
+        self.c_graph.allocate_min_cost(max_moves, verbose)
 
     def allocate_min_fixed(self, bool verbose = False):
         self.c_graph.allocate_min_fixed(verbose)

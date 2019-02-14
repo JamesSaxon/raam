@@ -76,6 +76,7 @@ class Graph {
     void set_transform(float scale = 1, float offset = 0, float power = 1, bool log = false, float log_base = 2);
 
     void allocate_min_fixed(bool verbose = false);
+    void allocate_min_cost(unsigned int max_moves = 10, bool verbose = false);
     void set_tol(float t);
     void set_tau(float a);
     void tune_tau(float delta = 1, float min = 0.1, float max = 120);
@@ -155,7 +156,7 @@ class Agent {
     string get_string();
 
     long long get_id()        { return _id; }
-    int       get_demand()    { return _demand; }
+    unsigned int get_demand()    { return _demand; }
     int       get_n_choices() { return _edges.size(); }
 
     float     get_tau()        { return _tau; }
@@ -165,6 +166,9 @@ class Agent {
     void      set_tol(float a) { _tol = a; }
 
     unsigned int get_region() { return _region; }
+
+    unsigned int get_allocation() { return _allocated; }
+    void      reset_allocation();
 
     float     get_avg_cost();
     float     get_avg_fixed_cost();
@@ -176,9 +180,12 @@ class Agent {
 
     int       get_total_in_region();
     float     get_frac_in_region();
+    float     get_local_frac_in_region();
 
+    Edge* get_min_cost_edge();
     Edge* get_min_fixed_edge();
     Edge* get_max_cost_edge();
+    unsigned int allocate_min_cost(unsigned int max_moves, bool verbose = false);
     void allocate_min_fixed(bool verbose = false);
 
     bool equalize_use(unsigned int max_moves = 0);
@@ -198,6 +205,7 @@ class Agent {
     unsigned int _demand;
     unsigned int _absent;
     unsigned int _visitors;
+    unsigned int _allocated;
 
     float _tau, _tol;
     bool _disconnected;
@@ -243,7 +251,7 @@ class Edge {
   public:
     
     Edge();
-    Edge(Agent* agent, Resource* resource, float cost, bool in_region);
+    Edge(Agent* agent, Resource* resource, float cost);
 
     long long get_agent_id()    { return _agent   ->get_id(); }
     long long get_resource_id() { return _resource->get_id(); }
@@ -298,6 +306,10 @@ class Tunnel {
     float get_local_fixed_cost_at_destination() { return _destination->get_avg_local_fixed_cost(); }
     float get_local_supply_cost_at_destination() { return _destination->get_avg_local_supply_cost(); }
 
+    float get_local_frac_in_region_at_destination() { return _destination->get_local_frac_in_region(); }
+
+    bool  is_in_region() { return _in_region; }
+
   private:
 
     Agent* _origin;
@@ -305,6 +317,8 @@ class Tunnel {
 
     unsigned int _capacity;
     unsigned int _use;
+
+    bool  _in_region;
 
 };
 
@@ -348,7 +362,7 @@ unsigned int Graph::load_edges(string fname, int mult, int add) {
 
   unsigned int nloaded(0);
 
-  cout << "Loading edges from " << fname << " ... ";
+  cout << "Loading edges from " << fname << " ... " << std::flush;
   io::CSVReader<3> times_csv(fname);
   times_csv.read_header(io::ignore_extra_column, "origin", "destination", "cost");
   long long origin; long long destination; float cost;
@@ -361,6 +375,7 @@ unsigned int Graph::load_edges(string fname, int mult, int add) {
       cout << "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b";
       cout << "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b";
       cout << "Loaded " << nloaded / 1000000 << "M edges from " << fname << " ... ";
+      cout << std::flush;
     }
   }
   cout << "done." << endl;
@@ -473,6 +488,8 @@ void Graph::new_region(long long id, float frac, float tau) {
 void Graph::new_agent(long long id, int demand, long long region) {
 
   assert(_addrA.find(id) == _addrA.end());
+  
+  if (_addrReg.find(region) == _addrReg.end()) cout << "Region " << region << " not found." << endl;
   assert(_addrReg.find(region) != _addrReg.end());
 
   _addrA[id] = _agents.size();
@@ -513,9 +530,7 @@ void Graph::new_edge(long long agent_id, long long resource_id, float cost) {
 
   if (!_resources[_addrR[resource_id]]->get_supply()) return;
 
-  bool in_region = (_agents[_addrA[agent_id]]->get_region() == _resources[_addrR[resource_id]]->get_region());
-
-  _edges.push_back(new Edge(_agents[_addrA[agent_id]], _resources[_addrR[resource_id]], cost, in_region));
+  _edges.push_back(new Edge(_agents[_addrA[agent_id]], _resources[_addrR[resource_id]], cost));
 
   _agents   [_addrA[agent_id]]   ->add_edge(_edges.back());
   _resources[_addrR[resource_id]]->add_edge(_edges.back());
@@ -586,6 +601,41 @@ void Graph::set_transform(float scale, float offset, float power, bool log, floa
 }
 
 
+void Graph::allocate_min_cost(unsigned int max_moves, bool verbose) {
+
+  unsigned int total_demand(0);
+  for (auto a : _agents) {
+    total_demand += a->get_demand();
+    a->reset_allocation();
+  }
+
+  unsigned int n_alloc(1), total_alloc(0);
+  while (n_alloc) {
+
+    n_alloc = 0;
+    for (auto a : _agents) {
+
+      n_alloc += a->allocate_min_cost(max_moves, verbose || (total_alloc > total_demand));
+    }
+
+    total_alloc += n_alloc;
+
+    cout << "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b";
+    cout << "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b";
+    cout << "Allocated " << total_alloc << " / " << total_demand << " (" << std::setprecision(4)
+         << 1.0 * total_alloc / total_demand << ") ... " << std::flush;
+  }
+
+  cout << " complete." << endl;
+
+  for (auto a : _agents) {
+    if (a->get_allocation() != a->get_demand()) {
+      cout << "aid=" << a->get_id() << "  a=" << a->get_allocation() << "  d=" << a->get_demand() << endl;
+    }
+  }
+
+}
+
 void Graph::allocate_min_fixed(bool verbose) {
 
   for (auto a : _agents) {
@@ -593,7 +643,6 @@ void Graph::allocate_min_fixed(bool verbose) {
     a->allocate_min_fixed(verbose);
 
   }
-
 }
 
 bool Graph::equalize_use(unsigned int cycles, unsigned int max_moves, float decay,
@@ -689,6 +738,7 @@ void Graph::write_frac_in_region(string filename) {
     float F = r->get_frac_in_region();
     if (!std::isnan(F)) {
       ofile << r->get_id() << "," 
+            << r->get_demand_in_region() << ","
             << r->get_frac() << ","
             << F << endl;
     }
@@ -745,8 +795,10 @@ float Region::get_frac_in_region() {
 
   unsigned int num(0), den(0);
   for (auto a : _agents) {
-    num += a->get_total_in_region();
-    den += a->get_demand();
+    int N = a->get_demand();
+
+    num += N * a->get_frac_in_region();
+    den += N;
   }
 
   return 1. * num / den;
@@ -778,7 +830,7 @@ void Region::tune_tau(float delta, float min, float max) {
 }
 
 Agent::Agent(long long id, int demand, long long region, float tau, float tol) : 
-  _id(id), _region(region), _demand(demand), _absent(0), _visitors(0), _tau(tau), _tol(tol), _disconnected(false) { };
+  _id(id), _region(region), _demand(demand), _absent(0), _visitors(0), _allocated(0), _tau(tau), _tol(tol), _disconnected(false) { };
 
 
 string Agent::get_string() {
@@ -934,17 +986,60 @@ float Agent::get_avg_local_cost() {
 int Agent::get_total_in_region() {
 
   int total_in_region(0);
-  for (auto e : _edges) if (e->is_in_region()) {
-    total_in_region += e->get_use();
+  for (auto e : _edges) {
+    if (e->is_in_region()) {
+      total_in_region += e->get_use();
+    }
   }
 
   return total_in_region;
 
 }
 
+float Agent::get_local_frac_in_region() {
+
+  if (!_demand ||
+      (_demand + _visitors - _absent) == 0) return 0;
+
+  float total_in_region = get_total_in_region();
+
+  return total_in_region / (_demand + _visitors - _absent);
+
+}
+
 float Agent::get_frac_in_region() {
 
-  return 1. * get_total_in_region() / _demand;
+  if (!_demand) return 0;
+
+  float local_frac_in_region = get_local_frac_in_region();
+
+  float absent_total_in_region(0);
+  for (auto t : _tunnels) {
+    if (t->is_in_region()) {
+      absent_total_in_region += t->get_use() * t->get_local_frac_in_region_at_destination();
+    }
+  }
+
+  return ((_demand - _absent) * local_frac_in_region + absent_total_in_region) / _demand;
+
+}
+
+Edge* Agent::get_min_cost_edge() {
+
+  Edge* min_edge(0);
+  float min_cost(1e10);
+
+  for (auto e : _edges) {
+
+    float mcost = e->total_cost(_tau);
+
+    if (mcost < min_cost) {
+      min_cost = mcost;
+      min_edge = e;
+    }
+  }
+
+  return min_edge;
 
 }
 
@@ -988,6 +1083,51 @@ Edge* Agent::get_max_cost_edge() {
 
 }
 
+
+unsigned int Agent::allocate_min_cost(unsigned int shift, bool verbose) {
+
+  if (_demand == _allocated) return 0;
+  if (_demand < _allocated + shift) shift = _demand - _allocated;
+
+  assert(_demand >= _allocated);
+
+  Edge* min_edge = get_min_cost_edge();
+  if (min_edge) {
+    min_edge->change_use(shift);
+    _allocated += shift;
+    if (verbose) cout << _id << " d=" << _demand << " a=" << _allocated << " s=" << shift << endl;
+  } else _disconnected = true;
+
+  unsigned int check_alloc(0);
+  for (auto e : _edges) {
+    check_alloc += e->get_use();
+  }
+
+  assert(_disconnected || (check_alloc == _allocated));
+  assert(_demand >= _allocated);
+
+  if (_disconnected && _demand) {
+
+    _allocated = _demand;
+    shift = _demand;
+
+    if (verbose) 
+      cout << "Warning: no minimum location found for "
+           << _id << ", which is populated." << endl;
+  }
+
+  return shift;
+
+}
+
+void Agent::reset_allocation() {
+
+  _allocated = 0;
+
+  for (auto e : _edges)   e->set_use(0);
+  for (auto t : _tunnels) t->set_use(0);
+
+}
 
 void Agent::allocate_min_fixed(bool verbose) {
 
@@ -1271,8 +1411,10 @@ unsigned int Resource::change_supply(int delta) {
 
 }
 
-Edge::Edge(Agent* agent, Resource* resource, float cost, bool in_region) :
-  _agent(agent), _resource(resource), _cost(cost), _use(0), _in_region(in_region) { }
+Edge::Edge(Agent* agent, Resource* resource, float cost) :
+  _agent(agent), _resource(resource), _cost(cost), _use(0) {
+  _in_region = (_agent->get_region() == _resource->get_region());
+}
 
 
 void Edge::change_use(int d_use) {
@@ -1302,8 +1444,10 @@ float Edge::total_cost(float tau) {
 }
 
 Tunnel::Tunnel(Agent* origin, Agent* destination, unsigned int capacity) : 
-  _origin(origin), _destination(destination),
-  _capacity(capacity), _use(0) { }
+  _origin(origin), _destination(destination), _capacity(capacity), _use(0) {
+
+  _in_region = (origin->get_region() == destination->get_region());
+}
 
 void Tunnel::set_use(unsigned int use) {
 
